@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
-from operator import index
+from multiprocessing.sharedctypes import Value
+from operator import concat, index
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -16,7 +17,7 @@ if not sys.warnoptions:
 
 
 # Import files
-    df_tickets = pd.read_excel('Pedidos_Semantix_22.02.xlsx')
+    df_tickets = pd.read_excel('Pedidos_Semantix.xlsx')
     df_tickets = df_tickets[(df_tickets['Status ClearSale'] != 'Pedido cancelado') & 
                             (df_tickets['Status ClearSale'] != 'Pagamento não autorizado pelo antifraude')]
 
@@ -46,7 +47,11 @@ if not sys.warnoptions:
 # Inputs
     tickets = st.sidebar.number_input('Quantidade de tickets do último mês', min_value=1) # Quantidade de tickets do último mês
     tm = st.sidebar.number_input('Ticket médio', min_value=1.00) # Ticket médio
-    carros = st.sidebar.number_input('Quantidade total de carros para o Delivery', min_value=1) # Quantidade total de carros para o delivery
+    frete = st.sidebar.number_input('Preço do frete', value=14.9) # Preço cobrado para frete de compras abaixo de 150 reais
+    carros = st.sidebar.number_input('Quantidade total de carros para o Delivery', min_value=1, value=89) # Quantidade total de carros para o delivery
+    maxEntregas = st.sidebar.number_input('Máximo de pedidos entregues pormês por carro', min_value=1, value=600) # Quantidade máxima de entregas por mês por carro
+    fator = st.sidebar.number_input('Fator de multiplicação do faturamento', value=1.00) # Fator de multiplicação do faturamento
+
     st.sidebar.write('#### Selecione os custos variáveis de acordo com a quantidade de entregas')
     checkbox_1 = st.sidebar.checkbox('PIS/COFINS combust.')    # (-)PIS/COFINS combust.
     checkbox_2 = st.sidebar.checkbox('Aluguéis de veículos')   # Aluguéis de veículos
@@ -77,14 +82,22 @@ if not sys.warnoptions:
         if check == True:
             cv = cv + (df.iloc[ultimoMes, ii+ini].sum()) / tickets
         else:
-            cf = cf + (df.iloc[ultimoMes, ii+ini].sum())
+            cf = cf + (df.iloc[ultimoMes, ii+ini].sum()) / carros
 
 
 
 # Estimar os custos dos meses faltantes
+    entrega =  len(df_tickets[(df_tickets['Tipo Entrega'] != 'Retirada') & (df_tickets['Valor Pedido'] < 150)]) / len(df_tickets) # Porcentagem dos pedidos que foram entrega com cobrança de frete
+
+    df['Receita PL - Delivery'] = df.apply(lambda x: x['Receita PL - Delivery']*fator if x['Custo_realizado'] == 0 else x['Receita PL - Delivery'], axis=1)
     df['Tickets_projetados'] = df.apply(lambda x: (x['Receita PL - Delivery'] / tm) if x['Custo_realizado'] == 0 else 0, axis=1)
-    df['Custo_projetado'] = df.apply(lambda x: ((x['Receita PL - Delivery'] / tm)*cv + cf) if x['Custo_realizado'] == 0 else 0, axis=1)
-    df['Custo_total'] = df['Custo_realizado'] + df['Custo_projetado']
+    df['Carros_necessarios'] = (df.apply(lambda x: (x['Tickets_projetados'] / maxEntregas) if x['Custo_realizado'] == 0 else 0, axis=1)).round(0)
+
+    df['Custo_projetado'] = df.apply(lambda x: x['Tickets_projetados']*cv + carros*cf if x['Carros_necessarios'] != 0 else 0, axis=1)
+    df['Custo_projetado'] = df.apply(lambda x: x['Tickets_projetados']*cv + x['Carros_necessarios']*cf if (x['Carros_necessarios'] > carros) else x['Custo_projetado'], axis=1)
+
+    df['Receita_frete'] = df.apply(lambda x: ((x['Receita PL - Delivery'] / tm)*entrega*frete), axis=1)
+    df['Custo_total'] = df['Custo_realizado'] + df['Custo_projetado'] - df['Receita_frete']
     df['Custo_x_Faturamento'] = df['Custo_total'] / df['Receita PL - Delivery']
 
 
@@ -108,8 +121,6 @@ if not sys.warnoptions:
         ax.set_xlabel('Meses', fontsize = 12)
         ax.tick_params(rotation = 20, axis = 'x')
         ax.set_ylabel('MR$', fontsize = 12)
-
-
         #ax2 = ax.twinx()
         #ax2.set_ylim(ax.get_ylim())
         #ax2.set_yticklabels(np.round(0,0.3))
@@ -137,3 +148,12 @@ if not sys.warnoptions:
     df_ano = pd.DataFrame(data=d, index=['Total Anual'])
 
     st.dataframe(df_ano, 2000, 1000)
+
+
+
+# Mostrar quantos carros seriam necessários para a configuração feita
+    st.write('')
+    st.write('##### Quantidade de carros necessários levando em consideração cada mês:')
+    st.write('Mínimo: ' + str(int(df[df['Carros_necessarios'] != 0]['Carros_necessarios'].min())) + ' carros')
+    st.write('Máximo: ' + str(int(df[df['Carros_necessarios'] != 0]['Carros_necessarios'].max())) + ' carros')
+    st.write('Média: ' + str(int(df[df['Carros_necessarios'] != 0]['Carros_necessarios'].mean())) + ' carros')
