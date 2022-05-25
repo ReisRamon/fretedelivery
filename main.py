@@ -102,6 +102,10 @@ if not sys.warnoptions:
     frete3 = st.sidebar.number_input('Preço do frete entre {} e {} km (3º quartil)'.format(frete_dist_2, frete_dist_3), value=14.9) # Preço cobrado de frete de compras abaixo de 150 reais
     frete4 = st.sidebar.number_input('Preço do frete acima de {} km (4º quartil)'.format(frete_dist_3), value=14.9) # Preço cobrado de frete de compras abaixo de 150 reais
 
+    st.sidebar.write('#### Valor mínimo para isenção do frete')
+
+    st.sidebar.write('#### Fator de aumento no frete por período de entrega')
+
 
 
 # Custos fixos (cf) e custos variáveis (cv)
@@ -200,12 +204,3 @@ if not sys.warnoptions:
 
 
 
-# Variar o valor minimo para não cobrar frete
-    st.write('')
-    st.write('##### Valor mínimo para isenção do frete')
-
-
-
-# Valores de frete por período
-    st.write('')
-    st.write('##### Fator de aumento no frete por período de entrega')
