@@ -177,7 +177,7 @@ if not sys.warnoptions:
 
 # Custos fixos (cf) e custos variáveis (cv)
     ultimoMes = len(df_frete) - 1 # Linha onde está o último mês
-    ini = 2 # Terceira coluna. A partir da próxima, começam os valores de custo (o índice inicial é 0)
+    ini = 3 # Terceira coluna. A partir da próxima, começam os valores de custo (o índice inicial é 0)
     ii = 0 # contador
     cv = 0
     cf = 0
