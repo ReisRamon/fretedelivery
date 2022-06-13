@@ -118,26 +118,17 @@ if not sys.warnoptions:
     tickets_digital = df_digital[(df_digital.canal_venda == 'DELIVERY') | (df_digital.canal_venda == 'ECOMMERCE')].vendas.sum()
     valor_digital = df_digital[(df_digital.canal_venda == 'DELIVERY') | (df_digital.canal_venda == 'ECOMMERCE')].valor.sum()
 
-    frete_dist_1 = round(df_dist.distancia_km.describe()[4], 1) # Primeiro quartil de distância
-    frete_dist_2 = round(df_dist.distancia_km.describe()[5], 1) # Segundo quartil ou mediana de distância
-    frete_dist_3 = round(df_dist.distancia_km.describe()[6], 1) # Terceiro quartil de distância
+    frete_dist_1 = float(round(df_dist.distancia_km.describe()[4], 1)) # Primeiro quartil de distância
+    frete_dist_2 = float(round(df_dist.distancia_km.describe()[5], 1)) # Segundo quartil ou mediana de distância
+    frete_dist_3 = float(round(df_dist.distancia_km.describe()[6], 1)) # Terceiro quartil de distância
 
-    q1 = len(df_dist[df_dist.distancia_km <= frete_dist_1]) / len(df_dist)
-    q2 = len(df_dist[(df_dist.distancia_km > frete_dist_1) & (df_dist.distancia_km <= frete_dist_2)]) / len(df_dist)
-    q3 = len(df_dist[(df_dist.distancia_km > frete_dist_2) & (df_dist.distancia_km <= frete_dist_3)]) / len(df_dist)
-    q4 = len(df_dist[(df_dist.distancia_km > frete_dist_3)]) / len(df_dist)
-
-    p1 = len(df_periodos[df_periodos.tipo_entrega_ajustado == 'Express']) / len(df_periodos)
-    p2 = len(df_periodos[(df_periodos.tipo_entrega_ajustado != 'Express') & (df_periodos.proximo_periodo_entrega == 1)]) / len(df_periodos)
-    p3 = len(df_periodos[(df_periodos.tipo_entrega_ajustado != 'Express') & (df_periodos.proximo_periodo_entrega > 1) & (df_periodos.proximo_periodo_entrega <= 4)]) / len(df_periodos)
-    p4 = len(df_periodos[(df_periodos.tipo_entrega_ajustado != 'Express') & (df_periodos.proximo_periodo_entrega > 4)]) / len(df_periodos)
 
 
 # Inputs
     tickets = st.sidebar.number_input('Quantidade de tickets para entrega (último mês)', min_value=1, value=tickets_digital) # Quantidade de tickets do último mês (Ecommerce + Delivery)
     tm = st.sidebar.number_input('Ticket médio', min_value=1.0, value=valor_digital/tickets_digital) # Ticket médio (Ecommerce + Delivery)
     carros = st.sidebar.number_input('Quantidade total de carros para o Delivery', min_value=1, value=89) # Quantidade total de carros para o delivery
-    maxEntregas = st.sidebar.number_input('Máximo de pedidos entregues por mês por carro', min_value=1, value=600) # Quantidade máxima de entregas por mês por carro
+    maxEntregas = st.sidebar.number_input('Máximo de pedidos entregues por mês por carro', min_value=1, value=450) # Quantidade máxima de entregas por mês por carro
     fator = st.sidebar.number_input('Fator de multiplicação do faturamento', value=1.00) # Fator de multiplicação do faturamento
 
     st.sidebar.write('#### Selecione os custos variáveis de acordo com a quantidade de entregas')
@@ -157,23 +148,100 @@ if not sys.warnoptions:
     checkboxes =[checkbox_1,checkbox_2,checkbox_3,checkbox_4,checkbox_5,checkbox_6,checkbox_7,checkbox_8,checkbox_9,
                 checkbox_10, checkbox_11, checkbox_12]
 
-    st.sidebar.write('### Simulador de fretes')
-    st.sidebar.write('#### Preços por distâncias')
-    frete1 = st.sidebar.number_input('Preço do frete até {} km (1º quartil)'.format(frete_dist_1), value=14.9) # Preço cobrado de frete de compras abaixo de 150 reais
-    frete2 = st.sidebar.number_input('Preço do frete entre {} e {} km (2º quartil)'.format(frete_dist_1, frete_dist_2), value=14.9) # Preço cobrado de frete de compras abaixo de 150 reais
-    frete3 = st.sidebar.number_input('Preço do frete entre {} e {} km (3º quartil)'.format(frete_dist_2, frete_dist_3), value=14.9) # Preço cobrado de frete de compras abaixo de 150 reais
-    frete4 = st.sidebar.number_input('Preço do frete acima de {} km (4º quartil)'.format(frete_dist_3), value=14.9) # Preço cobrado de frete de compras abaixo de 150 reais
 
-    st.sidebar.write('#### Adicionais de frete por período de entrega')
+    st.sidebar.write('---------------------------')
+    #st.sidebar.write('## Simulador de fretes')
+    st.sidebar.write('## Frete por distância')
+    st.sidebar.write('Quartis: {} km |{} km | {} km'.format(frete_dist_1, frete_dist_2, frete_dist_3))
+
+    frete_dist_max = st.sidebar.number_input('Distância máxima para delivery (km): ', value=10.0)
+    qtde_distancias = st.sidebar.selectbox('Escolha o número de faixas de distâncias: ', [1, 2, 3, 4], index=2)
+
+    if qtde_distancias == 1:
+        values1 = st.sidebar.slider('Primeira faixa', 0.0, frete_dist_max, (0.0, frete_dist_max))
+        values2 = (0,0)
+        values3 = (0,0)
+        values4 = (0,0)
+        frete1 = st.sidebar.number_input('Preço primeira faixa',value=14.9)
+        frete2 = 0
+        frete3 = 0
+        frete4 = 0
+    elif qtde_distancias == 2:
+        values1 = st.sidebar.slider('Primeira faixa', 0.0, frete_dist_max, (0.0, frete_dist_1))
+        values2 = st.sidebar.slider('Segunda faixa', 0.0, frete_dist_max, (values1[1], frete_dist_max))
+        values3 = (0,0)
+        values4 = (0,0)
+        frete1 = st.sidebar.number_input('Preço primeira faixa',value=14.9)
+        frete2 = st.sidebar.number_input('Preço segunda faixa', value=14.9)
+        frete3 = 0
+        frete4 = 0
+    elif qtde_distancias == 3:
+        values1 = st.sidebar.slider('Primeira faixa', 0.0, frete_dist_max, (0.0, frete_dist_1))
+        values2 = st.sidebar.slider('Segunda faixa', 0.0, frete_dist_max, (values1[1], frete_dist_2))
+        values3 = st.sidebar.slider('Terceira faixa', 0.0, frete_dist_max, (values2[1], frete_dist_max))
+        values4 = (0,0)
+        frete1 = st.sidebar.number_input('Preço primeira faixa',value=14.9)
+        frete2 = st.sidebar.number_input('Preço segunda faixa', value=14.9)
+        frete3 = st.sidebar.number_input('Preço terceira faixa',value=14.9)
+        frete4 = 0
+    elif qtde_distancias == 4:
+        values1 = st.sidebar.slider('Primeira faixa', 0.0, frete_dist_max, (0.0, frete_dist_1))
+        values2 = st.sidebar.slider('Segunda faixa', 0.0, frete_dist_max, (values1[1], frete_dist_2))
+        values3 = st.sidebar.slider('Terceira faixa', 0.0, frete_dist_max, (values2[1], frete_dist_3))
+        values4 = st.sidebar.slider('Quarta faixa', 0.0, frete_dist_max, (values3[1], frete_dist_max))
+        frete1 = st.sidebar.number_input('Preço primeira faixa',value=14.9)
+        frete2 = st.sidebar.number_input('Preço segunda faixa', value=14.9)
+        frete3 = st.sidebar.number_input('Preço terceira faixa',value=14.9)
+        frete4 = st.sidebar.number_input('Preço quarta faixa', value=14.9)
+
+    st.sidebar.write('---------------------------')
+    st.sidebar.write('## Adicionais por período delivery')
     frete_add1 = st.sidebar.number_input('Adicional até 2h (express)', value=9.9) # Adicional até 2h (express)
-    frete_add2 = st.sidebar.number_input('Adicional para o 1º período', value=4.9) # Adicional para o próximo período de entrega
-    frete_add3 = st.sidebar.number_input('Adicional entre 2º e 4º períodos', value=2.9) # Adicional entre os períodos 2 e 4 de entrega
-    frete_add4 = st.sidebar.number_input('Adicional acima do 4º perído', value=0) # Adicional acima do período 4
 
+    qtde_add = st.sidebar.selectbox('Escolha o número de faixas de periodos: ', [1, 2, 3])
+
+    if qtde_add == 1:
+        add2 = st.sidebar.slider('Primeira faixa', 1, 7, (1, 7))
+        add3 = (0,0)
+        add4 = (0,0)
+        frete_add2 = st.sidebar.number_input('Adicional para a 1ª faixa', value=4.9)
+        frete_add3 = 0
+        frete_add4 = 0
+    elif qtde_add == 2:
+        add2 = st.sidebar.slider('Primeira faixa', 1, 7, (1, 2))
+        add3 = st.sidebar.slider('Segunda faixa', 1, 7, (add2[1], 7))
+        add4 = (0,0)
+        frete_add2 = st.sidebar.number_input('Adicional para a 1ª faixa', value=4.9)
+        frete_add3 = st.sidebar.number_input('Adicional para a 2ª faixa', value=2.9)
+        frete_add4 = 0
+    elif qtde_add == 3:
+        add2 = st.sidebar.slider('Primeira faixa', 1, 7, (1, 2))
+        add3 = st.sidebar.slider('Segunda faixa', 1, 7, (add2[1], 3))
+        add4 = st.sidebar.slider('Terceira faixa', 1, 7, (add3[1], 7 ))
+        frete_add2 = st.sidebar.number_input('Adicional para a 1ª faixa', value=4.9)
+        frete_add3 = st.sidebar.number_input('Adicional para a 2ª faixa', value=2.9)
+        frete_add4 = st.sidebar.number_input('Adicional para a 3ª faixa', value=1.9)
+
+
+    st.sidebar.write('---------------------------')
     st.sidebar.write('#### Frete grátis')
     limite_frete = st.sidebar.number_input('Preço mínimo para isenção do frete', value=150) # Preço mínimo para isenção do frete
 
 
+
+# Proporção por distância e periodos
+    q1 = len(df_dist[df_dist.distancia_km <= values1[1]]) / len(df_dist)
+    q2 = len(df_dist[(df_dist.distancia_km > values1[1]) & (df_dist.distancia_km <= values2[1])]) / len(df_dist)
+    q3 = len(df_dist[(df_dist.distancia_km > values2[1]) & (df_dist.distancia_km <= values3[1])]) / len(df_dist)
+    q4 = len(df_dist[(df_dist.distancia_km > values3[1])]) / len(df_dist)
+
+    p1 = len(df_periodos[df_periodos.tipo_entrega_ajustado == 'Express']) / len(df_periodos)
+    p2 = len(df_periodos[(df_periodos.tipo_entrega_ajustado != 'Express') & (df_periodos.proximo_periodo_entrega <= add2[1])]) / len(df_periodos)
+    p3 = len(df_periodos[(df_periodos.tipo_entrega_ajustado != 'Express') & (df_periodos.proximo_periodo_entrega > add2[1]) & (df_periodos.proximo_periodo_entrega <= add3[1])]) / len(df_periodos)
+    p4 = len(df_periodos[(df_periodos.tipo_entrega_ajustado != 'Express') & (df_periodos.proximo_periodo_entrega > add3[1])]) / len(df_periodos)
+
+    print('{} | {} | {} | {}'.format(q1,q2,q3,q4))
+    print('{} | {} | {} | {}'.format(p1,p2,p3,p4))
 
 # Custos fixos (cf) e custos variáveis (cv)
     ultimoMes = len(df_frete) - 1 # Linha onde está o último mês
@@ -202,7 +270,7 @@ if not sys.warnoptions:
 
     df['Receita_frete'] = df['Tickets_projetados'] * entrega_com_frete * ((q1*frete1 + q2*frete2 + q3*frete3 + q4*frete4) + (p1*frete_add1 + p2*frete_add2 + p3*frete_add3 + p4*frete_add4))
     df['Custo_total'] = df.apply(lambda x: x['Custo_realizado'] + x['Custo_projetado'] - x['Receita_frete'] if x['Receita_frete'] != 0 else 0, axis=1)
-    df['Custo_x_Faturamento'] = df['Custo_total'] / df['Receita PL - Delivery']
+    df['Custo_x_Faturamento'] = round(df['Custo_total'] / df['Receita PL - Delivery'] *100, 1)
 
 
 
@@ -211,7 +279,7 @@ if not sys.warnoptions:
 
     df_temp1 = df_filtered[['Ano','Meses','Receita PL - Delivery']]
     df_temp1 = df_temp1.rename(columns={'Receita PL - Delivery':'Valor'})
-    df_temp1['Tipo'] = 'Receita PL - Delivery'
+    df_temp1['Tipo'] = 'Receita PL'
 
     df_temp2 = df[['Ano','Meses','Custo_total']]
     df_temp2 = df_temp2.rename(columns={'Custo_total':'Valor'})
@@ -240,18 +308,31 @@ if not sys.warnoptions:
     
 
 # Tabela com valores do gráfico
-    df_valores = df[df.Custo_total != 0][['Ano','Meses','Receita PL - Delivery','Custo_total','Custo_x_Faturamento','Receita_frete']]
+
+    st.write('Os valores das tabelas abaixo de receitas e custos são dados em Milhões')
+
+    df_valores = df[df.Custo_total != 0][['Ano','Meses','Receita PL - Delivery','Custo_projetado','Custo_total','Custo_x_Faturamento','Receita_frete']]
     df_valores['Receita PL - Delivery'] = (df_valores['Receita PL - Delivery'] / 1000000).round(3)
+    df_valores['Custo_projetado'] = (df_valores['Custo_projetado'] / 1000000).round(3)
     df_valores['Custo_total'] = (df_valores['Custo_total'] / 1000000).round(3)
     df_valores['Custo_x_Faturamento'] = df_valores['Custo_x_Faturamento'].round(3)
     df_valores['Receita_frete'] = (df_valores['Receita_frete'] / 1000000).round(3)
 
-    st.dataframe(df_valores.set_index('Meses')[['Receita PL - Delivery','Custo_total','Custo_x_Faturamento','Receita_frete']])
+    df_valores.rename(columns={
+        'Receita PL - Delivery':'Receita PL',
+        'Custo_projetado':'Custo bruto',
+        'Receita_frete':'Receita frete',
+        'Custo_total':'Custo líquido',
+        'Custo_x_Faturamento':'CustoXFat (%)'
+    }, inplace=True)
+
+    st.dataframe(df_valores.set_index('Meses')[['Receita PL','Custo bruto','Receita frete','Custo líquido','CustoXFat (%)']])
     
-    d = {'Receita PL - Delivery': df_valores['Receita PL - Delivery'].sum(), 
-         'Custo_total': df_valores['Custo_total'].sum(), 
-         'Custo_x_Faturamento': (df_valores['Custo_total'].sum() / df_valores['Receita PL - Delivery'].sum()),
-         'Receita_frete': df_valores['Receita_frete'].sum()
+    d = {'Receita PL': df_valores['Receita PL'].sum(),
+         'Custo bruto': df_valores['Custo bruto'].sum(),
+         'Receita frete': df_valores['Receita frete'].sum(),
+         'Custo líquido': df_valores['Custo líquido'].sum(), 
+         'CustoXFat (%)': (df_valores['Custo líquido'].sum() / df_valores['Receita PL'].sum())
          }
          
     df_ano = pd.DataFrame(data=d, index=['Total   '])
@@ -259,13 +340,12 @@ if not sys.warnoptions:
     st.dataframe(df_ano)
 
 
-
 # Preço médio do frete
     st.write('')
     st.write('##### Preço médio do frete seguindo a proporção de distância e períodos das compras atuais')
     st.write('R$ {} de frete'.format(round(q1*frete1 + q2*frete2 + q3*frete3 + q4*frete4, 2)))
     st.write('R$ {} de acréscimo'.format(round(p1*frete_add1 + p2*frete_add2 + p3*frete_add3 + p4*frete_add4, 2)))
-    st.write('Total R$ {}'.format(round(q1*frete1 + q2*frete2 + q3*frete3 + q4*frete4, 2) + round(p1*frete_add1 + p2*frete_add2 + p3*frete_add3 + p4*frete_add4, 2)))
+    st.write('Total R$ {}'.format(round(round(q1*frete1 + q2*frete2 + q3*frete3 + q4*frete4, 2) + round(p1*frete_add1 + p2*frete_add2 + p3*frete_add3 + p4*frete_add4, 2), 2)))
     st.write('')
 
 
