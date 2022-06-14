@@ -50,6 +50,23 @@ if not sys.warnoptions:
 
 
 
+# Dicionario de meses
+    dic_mes = {
+        'janeiro':1,
+        'fevereiro':2,
+        'março':3,
+        'abril':4,
+        'maio':5,
+        'junho':6,
+        'julho':7,
+        'agosto':8,
+        'setembro':9,
+        'outubro':10,
+        'novembro':11,
+        'dezembro':12
+        }
+
+
 # Funções
     def verifica_express(serie):
         if serie['Tipo Entrega'] == 'Express':
@@ -93,9 +110,10 @@ if not sys.warnoptions:
 
 
 # Acrécimo de informações na base de pedidos da Semantix
-    df_periodos = df_tickets[(df_tickets['Tipo Entrega'] != 'Retirada')]
+    df_periodos = df_tickets[(df_tickets['Tipo Entrega'] != 'Retirada')].dropna(subset=['Dt Aprovação ClearSale'], axis=0)
 
     df_periodos['Dt Aprovação ClearSale'] = df_periodos['Dt Aprovação ClearSale'].apply(lambda x: datetime.strptime(x, '%d/%m/%Y %H:%M:%S'))
+    df_periodos['mes'] = df_periodos['Dt Aprovação ClearSale'].dt.month
     df_periodos['Dt Inicio Prevista Entrega/Retirada'] = df_periodos['Dt Inicio Prevista Entrega/Retirada'].apply(lambda x: datetime.strptime(x, '%d/%m/%Y %H:%M:%S'))
     df_periodos['aprovacao_hora'] = df_periodos['Dt Aprovação ClearSale'].dt.hour
 
@@ -113,8 +131,20 @@ if not sys.warnoptions:
 
 
 
+# Inputs
+    mes_ref = st.sidebar.selectbox('Mês de referência ', df_frete.Meses.unique())
+
+
+
+# Filtra base de pedidos da Semantix e a query do Impala com o mês de referencia
+    df_periodos = df_periodos[df_periodos['mes'] == dic_mes[mes_ref]]
+    df_digital = df_digital[df_digital['mes'] == dic_mes[mes_ref]]
+
+
+
 # Variáveis
-    digital = df_digital[(df_digital.canal_venda == 'DELIVERY') | (df_digital.canal_venda == 'ECOMMERCE')].valor.sum() / df_digital.valor.sum() # Porcentagem da receita do ecommerce que vem do Ecommerce e do Delivery
+    receita_delivery = df_digital[(df_digital.canal_venda == 'DELIVERY') | (df_digital.canal_venda == 'ECOMMERCE')].valor.sum()
+    digital = receita_delivery / df_digital.valor.sum() # Porcentagem da receita do ecommerce que vem do Ecommerce e do Delivery
     tickets_digital = df_digital[(df_digital.canal_venda == 'DELIVERY') | (df_digital.canal_venda == 'ECOMMERCE')].vendas.sum()
     valor_digital = df_digital[(df_digital.canal_venda == 'DELIVERY') | (df_digital.canal_venda == 'ECOMMERCE')].valor.sum()
 
@@ -125,7 +155,7 @@ if not sys.warnoptions:
 
 
 # Inputs
-    tickets = st.sidebar.number_input('Quantidade de tickets para entrega (último mês)', min_value=1, value=tickets_digital) # Quantidade de tickets do último mês (Ecommerce + Delivery)
+    tickets = st.sidebar.number_input('Quantidade de tickets para entrega', min_value=1, value=tickets_digital) # Quantidade de tickets do último mês (Ecommerce + Delivery)
     tm = st.sidebar.number_input('Ticket médio', min_value=1.0, value=valor_digital/tickets_digital) # Ticket médio (Ecommerce + Delivery)
     carros = st.sidebar.number_input('Quantidade total de carros para o Delivery', min_value=1, value=89) # Quantidade total de carros para o delivery
     maxEntregas = st.sidebar.number_input('Máximo de pedidos entregues por mês por carro', min_value=1, value=450) # Quantidade máxima de entregas por mês por carro
@@ -177,7 +207,7 @@ if not sys.warnoptions:
         frete4 = 0
     elif qtde_distancias == 3:
         values1 = st.sidebar.slider('Primeira faixa', 0.0, frete_dist_max, (0.0, frete_dist_1))
-        values2 = st.sidebar.slider('Segunda faixa', 0.0, frete_dist_max, (values1[1], frete_dist_2))
+        values2 = st.sidebar.slider('Segunda faixa', 0.0, frete_dist_max, (values1[1], values1[1] + (frete_dist_2-frete_dist_1)))
         values3 = st.sidebar.slider('Terceira faixa', 0.0, frete_dist_max, (values2[1], frete_dist_max))
         values4 = (0,0)
         frete1 = st.sidebar.number_input('Preço primeira faixa',value=14.9)
@@ -186,8 +216,8 @@ if not sys.warnoptions:
         frete4 = 0
     elif qtde_distancias == 4:
         values1 = st.sidebar.slider('Primeira faixa', 0.0, frete_dist_max, (0.0, frete_dist_1))
-        values2 = st.sidebar.slider('Segunda faixa', 0.0, frete_dist_max, (values1[1], frete_dist_2))
-        values3 = st.sidebar.slider('Terceira faixa', 0.0, frete_dist_max, (values2[1], frete_dist_3))
+        values2 = st.sidebar.slider('Segunda faixa', 0.0, frete_dist_max, (values1[1], values1[1] + (frete_dist_2-frete_dist_1)))
+        values3 = st.sidebar.slider('Terceira faixa', 0.0, frete_dist_max, (values2[1], values2[1] + (frete_dist_3-frete_dist_2)))
         values4 = st.sidebar.slider('Quarta faixa', 0.0, frete_dist_max, (values3[1], frete_dist_max))
         frete1 = st.sidebar.number_input('Preço primeira faixa',value=14.9)
         frete2 = st.sidebar.number_input('Preço segunda faixa', value=14.9)
@@ -221,7 +251,7 @@ if not sys.warnoptions:
         frete_add2 = st.sidebar.number_input('Adicional para a 1ª faixa', value=4.9)
         frete_add3 = st.sidebar.number_input('Adicional para a 2ª faixa', value=2.9)
         frete_add4 = st.sidebar.number_input('Adicional para a 3ª faixa', value=1.9)
-
+        print()
 
     st.sidebar.write('---------------------------')
     st.sidebar.write('#### Frete grátis')
@@ -240,11 +270,8 @@ if not sys.warnoptions:
     p3 = len(df_periodos[(df_periodos.tipo_entrega_ajustado != 'Express') & (df_periodos.proximo_periodo_entrega > add2[1]) & (df_periodos.proximo_periodo_entrega <= add3[1])]) / len(df_periodos)
     p4 = len(df_periodos[(df_periodos.tipo_entrega_ajustado != 'Express') & (df_periodos.proximo_periodo_entrega > add3[1])]) / len(df_periodos)
 
-    print('{} | {} | {} | {}'.format(q1,q2,q3,q4))
-    print('{} | {} | {} | {}'.format(p1,p2,p3,p4))
-
 # Custos fixos (cf) e custos variáveis (cv)
-    ultimoMes = len(df_frete) - 1 # Linha onde está o último mês
+    #ultimoMes = len(df_frete) - 1 # Linha onde está o último mês
     ini = 3 # Terceira coluna. A partir da próxima, começam os valores de custo (o índice inicial é 0)
     ii = 0 # contador
     cv = 0
@@ -252,9 +279,11 @@ if not sys.warnoptions:
     for check in checkboxes:
         ii = ii + 1
         if check == True:
-            cv = cv + (df.iloc[ultimoMes, ii+ini].sum()) / tickets
+            cv = cv + (df[df.Meses == mes_ref].iloc[0, ii+ini].sum()) / (receita_delivery * digital / tm)
         else:
-            cf = cf + (df.iloc[ultimoMes, ii+ini].sum()) / carros
+            cf = cf + (df[df.Meses == mes_ref].iloc[0, ii+ini].sum()) / carros
+
+
 
 # Outras váriáveis
     entrega_total = len(df_tickets[(df_tickets['Tipo Entrega'] != 'Retirada')]) / len(df_tickets) # Porcentagem dos pedidos que foram entrega
@@ -262,14 +291,14 @@ if not sys.warnoptions:
 
 # Estimar os custos dos meses faltantes
     df['Receita PL - Delivery'] = df.apply(lambda x: x['Receita PL']*digital*fator if x['Receita PL - Delivery'] == 0 else x['Receita PL - Delivery'], axis=1)
-    df['Tickets_projetados'] = df.apply(lambda x: (x['Receita PL - Delivery']*digital / tm) if x['Custo_realizado'] == 0 else 0, axis=1)
-    df['Carros_necessarios'] = (df.apply(lambda x: (x['Tickets_projetados']*entrega_total / maxEntregas) if x['Custo_realizado'] == 0 else 0, axis=1)).round(0)
+    df['Tickets_projetados'] = df.apply(lambda x: (x['Receita PL - Delivery']*digital / tm), axis=1)
+    df['Carros_necessarios'] = (df.apply(lambda x: (x['Tickets_projetados']*entrega_total / maxEntregas), axis=1)).round(0)
 
-    df['Custo_projetado'] = df.apply(lambda x: x['Tickets_projetados']*cv + carros*cf if x['Carros_necessarios'] != 0 else 0, axis=1)
+    df['Custo_projetado'] = df.apply(lambda x: x['Tickets_projetados']*cv + carros*cf, axis=1)
     df['Custo_projetado'] = df.apply(lambda x: x['Tickets_projetados']*cv + x['Carros_necessarios']*cf if (x['Carros_necessarios'] > carros) else x['Custo_projetado'], axis=1)
 
     df['Receita_frete'] = df['Tickets_projetados'] * entrega_com_frete * ((q1*frete1 + q2*frete2 + q3*frete3 + q4*frete4) + (p1*frete_add1 + p2*frete_add2 + p3*frete_add3 + p4*frete_add4))
-    df['Custo_total'] = df.apply(lambda x: x['Custo_realizado'] + x['Custo_projetado'] - x['Receita_frete'] if x['Receita_frete'] != 0 else 0, axis=1)
+    df['Custo_total'] = df.apply(lambda x: x['Custo_realizado'] - x['Receita_frete'] if x['Custo_realizado'] != 0 else x['Custo_projetado'] - x['Receita_frete'], axis=1)
     df['Custo_x_Faturamento'] = round(df['Custo_total'] / df['Receita PL - Delivery'] *100, 1)
 
 
@@ -311,8 +340,11 @@ if not sys.warnoptions:
 
     st.write('Os valores das tabelas abaixo de receitas e custos são dados em Milhões')
 
-    df_valores = df[df.Custo_total != 0][['Ano','Meses','Receita PL - Delivery','Custo_projetado','Custo_total','Custo_x_Faturamento','Receita_frete']]
+    df_valores = df[['Ano','Meses','Receita PL - Delivery','Custo_realizado','Custo_projetado','Custo_total','Custo_x_Faturamento','Receita_frete']]
+    #df_valores = df[df[df.Meses == mes_ref].index[0]:len(df)][['Ano','Meses','Receita PL - Delivery','Custo_projetado','Custo_total','Custo_x_Faturamento','Receita_frete']]
+    #df_valores = df[df.Custo_total != 0][['Ano','Meses','Receita PL - Delivery','Custo_projetado','Custo_total','Custo_x_Faturamento','Receita_frete']]
     df_valores['Receita PL - Delivery'] = (df_valores['Receita PL - Delivery'] / 1000000).round(3)
+    df_valores['Custo_realizado'] = (df_valores['Custo_realizado'] / 1000000).round(3)
     df_valores['Custo_projetado'] = (df_valores['Custo_projetado'] / 1000000).round(3)
     df_valores['Custo_total'] = (df_valores['Custo_total'] / 1000000).round(3)
     df_valores['Custo_x_Faturamento'] = df_valores['Custo_x_Faturamento'].round(3)
@@ -320,24 +352,30 @@ if not sys.warnoptions:
 
     df_valores.rename(columns={
         'Receita PL - Delivery':'Receita PL',
-        'Custo_projetado':'Custo bruto',
-        'Receita_frete':'Receita frete',
-        'Custo_total':'Custo líquido',
+        'Custo_realizado':'CR',
+        'Custo_projetado':'CB',
+        'Receita_frete':'RF',
+        'Custo_total':'CL',
         'Custo_x_Faturamento':'CustoXFat (%)'
     }, inplace=True)
 
-    st.dataframe(df_valores.set_index('Meses')[['Receita PL','Custo bruto','Receita frete','Custo líquido','CustoXFat (%)']])
+    st.dataframe(df_valores.set_index('Meses')[['Receita PL','CR','CB','RF','CL','CustoXFat (%)']])
     
     d = {'Receita PL': df_valores['Receita PL'].sum(),
-         'Custo bruto': df_valores['Custo bruto'].sum(),
-         'Receita frete': df_valores['Receita frete'].sum(),
-         'Custo líquido': df_valores['Custo líquido'].sum(), 
-         'CustoXFat (%)': (df_valores['Custo líquido'].sum() / df_valores['Receita PL'].sum())
+         'CR':df_valores['CR'].sum(),
+         'CB': df_valores['CB'].sum(),
+         'RF': df_valores['RF'].sum(),
+         'CL': df_valores['CL'].sum(), 
+         'CustoXFat (%)': (df_valores['CL'].sum() / df_valores['Receita PL'].sum())
          }
          
     df_ano = pd.DataFrame(data=d, index=['Total   '])
 
     st.dataframe(df_ano)
+    st.write('  CR = Custo Realizado')
+    st.write('  CB = Custo Bruto')
+    st.write('  RF = Receita Frete')
+    st.write('  CL = Custo Liquido')
 
 
 # Preço médio do frete
